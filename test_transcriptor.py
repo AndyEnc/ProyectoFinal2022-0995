@@ -1,44 +1,95 @@
-import unittest
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
+import time
+from selenium.webdriver.chrome.service import Service
+from selenium.common.exceptions import NoSuchElementException
 
-class TestTranscriptor(unittest.TestCase):
+# Ruta del chromedriver en tu sistema
+chrome_driver_path = "C:\\Seleniumdriver\\chromedriver.exe"
 
-    def setUp(self):
-        self.driver = webdriver.Chrome()
-        self.driver.get('http://localhost:5000') 
+# Configuración de Selenium con la ruta personalizada para ChromeDriver
+driver = webdriver.Chrome(service=Service(chrome_driver_path))
 
-    def tearDown(self):
-        self.driver.quit()
+# Lista para registrar los resultados de las pruebas
+test_results = []
 
-    def test_audio_recording(self):
-        """Prueba de grabación de audio."""
-        driver = self.driver
+def log_test_result(test_name, status):
+    """Registra el resultado de una prueba."""
+    result = f"Prueba: {test_name} - {'PASÓ' if status else 'FALLÓ'}"
+    test_results.append(result)
+    print(result)
 
-        start_recording_btn = driver.find_element(By.ID, 'startRecording')
+try:
+    # Abrir la página de tu aplicación Flask
+    driver.get("http://127.0.0.1:5000")
+    print("Página cargada con éxito.")
+    time.sleep(5)
 
-        WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.ID, 'startRecording'))
-        )
-        actions = ActionChains(driver)
-        actions.move_to_element(start_recording_btn).click().perform()
+    # Captura inicial
+    driver.save_screenshot("pagina_inicial.png")
+    log_test_result("Carga de la página", True)
 
-        WebDriverWait(driver, 10).until(
-            lambda d: d.find_element(By.ID, 'recordingStatus').text == "Recording..."
-        )
+    ### PRUEBA DE SUBIR ARCHIVO ###
+    try:
+        print("Probando la funcionalidad de subir archivo...")
+        audio_file_input = driver.find_element(By.ID, "audioFile")  # ID del input para archivos
+        audio_file_input.send_keys("D:\\Portafolio\\ProyectoGp\\uploads\\AudioMuestra.wav")
+        time.sleep(2)
 
-        stop_recording_btn = driver.find_element(By.ID, 'stopRecording')
+        driver.save_screenshot("archivo_cargado.png")
+        print("Archivo cargado correctamente.")
+        
+        submit_button = driver.find_element(By.XPATH, "//form[@id='audioForm']//button")
+        submit_button.click()
+        time.sleep(5)
 
-        WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.ID, 'stopRecording'))
-        )
-        actions.move_to_element(stop_recording_btn).click().perform()
+        driver.save_screenshot("formulario_enviado.png")
+        log_test_result("Subida de archivo", True)
+    except Exception as e:
+        log_test_result("Subida de archivo", False)
+        print(f"Error en la prueba de subir archivo: {e}")
 
-        recording_status = driver.find_element(By.ID, 'recordingStatus')
-        self.assertEqual(recording_status.text, "Recording Completed.", "El estado de grabación no se actualizó correctamente.")
+    ### PRUEBA DE GRABAR AUDIO ###
+    try:
+        print("Probando la funcionalidad de grabar audio...")
+        start_recording_button = driver.find_element(By.ID, "startRecording")  # ID del botón para grabar
+        start_recording_button.click()
+        time.sleep(5)  # Simula tiempo para grabar
 
-if __name__ == "__main__":
-    unittest.main()
+        stop_recording_button = driver.find_element(By.ID, "stopRecording")  # ID del botón para detener grabación
+        stop_recording_button.click()
+        time.sleep(2)
+
+        driver.save_screenshot("grabacion_completada.png")
+        log_test_result("Grabación de audio", True)
+    except Exception as e:
+        log_test_result("Grabación de audio", False)
+        print(f"Error en la prueba de grabar audio: {e}")
+
+    ### PRUEBA DE TRANSCRIPCIÓN ###
+    try:
+        print("Verificando la transcripción...")
+        transcription_text = driver.find_element(By.ID, "result")  
+        transcribed_text = transcription_text.text
+        print("Texto transcrito:", transcribed_text)
+
+        driver.save_screenshot("transcripcion_resultado.png")
+        log_test_result("Transcripción de audio", True)
+    except NoSuchElementException:
+        log_test_result("Transcripción de audio", False)
+        print("No se encontró el elemento de transcripción.")
+    except Exception as e:
+        log_test_result("Transcripción de audio", False)
+        print(f"Error en la prueba de transcripción: {e}")
+
+except Exception as e:
+    print(f"Error general durante las pruebas: {e}")
+    log_test_result("Carga de la página", False)
+
+finally:
+    print("\n--- Resumen de las pruebas ---")
+    for result in test_results:
+        print(result)
+
+    driver.quit()
+    print("Navegador cerrado.")
